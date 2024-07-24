@@ -76,3 +76,25 @@ godot mvp-godot-project/project.godot # Open the project
 ./build.py src/hello_p_get_proc_address.c
 godot mvp-godot-project/project.godot
 ```
+
+### Hello global Godot function
+
+`src/hello_global_godot_function.c` shows how you can call a Godot function that is defined in the global scope. You can find documentation in [@GlobalScope](https://docs.godotengine.org/en/stable/classes/class_%40globalscope.html). In our program we have chosen to call `rad_to_deg`. While it's not worth the effort to call this particular function because the formula is as simple as `rad * 180 / PI`, it's perfect for demonstration purposes because we can quickly tell if the function output is correct.
+
+This example introduces several new concepts and thus is noticeably larger.
+
+First of all, to keep our sanity, we have made a `gd_extension` structure that holds the global API functions. Keeping functions in a struct lets our function calls look like they belong in a namespace, e.g. `gd_extension.string_name_new_with_utf8_chars(res, c_string)`, which makes code more readable. 
+
+Secondly, @GlobalScope functions are called **utility functions** in GDExtension and the function signatures are found in `gde-api`'s `utility_functions` field. An important concept to keep in mind is the notion of function/method signature **hash** which uniquely identifies a signature. It doesn't seem to be an important concept in global functions but there are several classes in Godot with methods that can have optional arguments or several signatures. In practical terms, if we want to call a function/method, we need to specify both *name* and *hash* which you can see in `gd_extension.variant_get_ptr_utility_function(rad_to_deg_string_name, 2140049587);`.
+
+Thirdly, you are greeted with `StringName` which appears rather often in GDExtension. You can read [StringName documentation](https://docs.godotengine.org/en/stable/classes/class_stringname.html) in the official docs but the main idea is that StringName comparisons are really fast and the rule of thumb is that if you want to specify a class, property or anything else that needs to be found via string, it's going to be to a StringName. 
+
+GDExtension provides a convenience function `string_name_with_utf8_chars` that can turn a regular C string into `StringName`. If we take a look at our convenience function `construct_string_name`, we see that the size depends on whether the Godot is built for 64bit (which it is). In order to figure out, how many bytes are needed, we need to look inside `gde-api`'s `builtin_class_sizes`. There are 4 build configurations: `float_32`, `float_64`, `double_32`, `double_64` which respectively correspond to regular 32-bit, regular 64-bit, large world coordinate 32-bit, large world coordinate 64bit. If we inspect the size of `StringName`, we get 4, 8, 4, 8 which means that the StringName size only depends on bit width. By default Godot is in `float_64` configuration and you would need to build other configurations separately. You may want to read [Large world coordinates](https://docs.godot.community/tutorials/physics/large_world_coordinates.html) documentation.
+
+Since `StringName` is a Godot Variant, we need to destruct it like a Variant by first getting `variant_get_ptr_destructor` and then obtaining the destructor with `gd_extension.variant_get_ptr_destructor(GDEXTENSION_VARIANT_TYPE_STRING_NAME)`. 
+
+Finally we can talk about the task we want to achieve -- use `rad_to_deg` to convert 3.14 radians to degrees. We first fetch the utility function via name + hash that we found in `gde-api` then we prepare arguments and destination and finally we call the function and print the results.
+
+A potentially confusing part are the types -- `GDExtensionTypePtr`, `GDExtensionConstTypePtr`, `GDExtensionUninitializedTypePtr`. They are just regular C types that you can access directly and the types of these variables depend on the function we are using. Since `rad_to_deg` takes a float and returns a float then we have to use a C double. I know this because the size of Godot's `float` is always 8 (as per `gde-api`) and the C type that fits the bill is `double`.
+
+Now that out of the way, we can compile and run the example and get `3.14rad is equal to 179.908748 deg` (the degrees may vary a bit) in the terminal. We have successfully called a global function. 
