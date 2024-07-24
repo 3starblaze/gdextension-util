@@ -68,3 +68,11 @@ With this knowledge you can make a simple "Hello world" program that will be cal
 godot mvp-godot-project/project.godot # Open the project
 ```
 
+### Hello `p_get_proc_address`
+
+`src/hello_p_get_proc_address.c` contains a simple usage of `p_get_process_address` in order to retrieve the current version of Godot.
+
+```bash
+./build.py src/hello_p_get_proc_address.c
+godot mvp-godot-project/project.godot
+```
