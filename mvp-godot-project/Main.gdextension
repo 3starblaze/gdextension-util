@@ -1,0 +1,9 @@
+[configuration]
+
+entry_symbol = "godot_entry"
+compatibility_minimum = "4.2"
+
+[libraries]
+macos.debug = "res://build/entry.dylib"
+linux.debug = "res://build/entry.so"
+windows.debug = "res://build/entry.dll"

@@ -60,3 +60,11 @@ Once Godot starts, it initializes in layers, first core, second servers, third s
 ![Godot architecture diagram](https://docs.godotengine.org/en/stable/_images/architecture_diagram.jpg)
 
 If you don't know what to choose, you only need to care about *scene* (which is always loaded) or *editor* (which is only loaded when the editor is loaded). Set `r_initialization`'s `initialize` and `deinitialize`, compare the `p_level` to `GDEXTENSION_INITIALIZATION_SCENE` or `GDEXTENSION_INITIALIZATION_SCENE` and do the work. If you don't wait for initialization (for example, you want to do your work in the entry function) then Godot classes cannot be used and you will encounter `ERROR: Cannot get class 'Node'.` or similar.
+
+With this knowledge you can make a simple "Hello world" program that will be called when a Godot project is loaded. Once you compile `hello_gdextension.c` and run the minimal project, you can see print statements "hello from scene!" and "hello from editor!" which means that everything works as expected! If you close Godot normally (and don't terminate with `Ctrl-C`), you will see "goodbye from editor!" and "goodbye from scene!". 
+
+```bash
+./build.py src/hello_gdextension.c # Build the first example
+godot mvp-godot-project/project.godot # Open the project
+```
+
