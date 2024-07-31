@@ -98,3 +98,17 @@ Finally we can talk about the task we want to achieve -- use `rad_to_deg` to con
 A potentially confusing part are the types -- `GDExtensionTypePtr`, `GDExtensionConstTypePtr`, `GDExtensionUninitializedTypePtr`. They are just regular C types that you can access directly and the types of these variables depend on the function we are using. Since `rad_to_deg` takes a float and returns a float then we have to use a C double. I know this because the size of Godot's `float` is always 8 (as per `gde-api`) and the C type that fits the bill is `double`.
 
 Now that out of the way, we can compile and run the example and get `3.14rad is equal to 179.908748 deg` (the degrees may vary a bit) in the terminal. We have successfully called a global function. 
+
+### Hello ptrcall OS.alert()
+
+In `src/hello_ptrcall_os_alert.c` we examine how to call `OS` singleton method `alert ( String text, String title="Alert!" )` via ptrcall.
+
+**ptrcall** is the simplest but also the most unsafe way to call a method. When using ptrcall, you pass an array of void pointers which must correctly correspond to the method arguments. If the types don't match you will segfault, or, even worse, get garbage output. Just treat it like a regular memory hazard you encounter in C.
+
+Also keep in mind that arrays in C are degraded into regular pointers which means that ptrcall doesn't know the number of elements. The practical consequence is that you *must specify* all the default arguments because ptrcall cannot know if optional argument were passed or not. This also means that ptrcall can't really be used for vararg methods/functions.
+
+Anyhow, as we look at the source file, we can see `STORE_GD_EXTENSION` which is a simple macro that saves me some keystrokes and makes `godot_entry` function a bit nicer to look at. We also brought some string and string_name helpers, just like previously. The main action happens in `do_work` function.
+
+In order to fetch a singleton, we use `gd_extension.global_get_singleton` function that takes the singleton's class name. Once we have the singleton, we need to get `OS.alert` **method bind** which is an object that represents a method. Method bind needs a class name, method name and the method hash. Once we have the method bind, we can use `gd_extension.object_method_bind_ptrcall`, pass the arguments and see the alert that we spent so much effort to call. Also, we pass `NULL` as the last argument because alert has no return type and we have to give something so that our code compiles.
+
+As we have seen in previous example, treat `GDExtensionConstTypePtr` as a void pointer. It can be a native C type, it can be a Godot type, it can be whatever it needs to be. We are passing godot strings because the type is String and if the type starts with a capital letter, it's probably a Godot type. If it was an int or a float, it would be uint64_t and double in C (as you can see in `builtin_class_sizes` in `gde-api`).
