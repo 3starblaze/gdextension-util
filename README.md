@@ -124,3 +124,26 @@ The setup is similar to the previous example, so we can jump in right into `do_w
 `gd_extension.object_method_bind_call` arglist is bigger than its ptrcall counterpart. Now we can specify the argument count and also the place where call errors can be written in case there are any problems. Even though our humble alert function does not return anything, we still need to provide a place for Godot to write the result. When we print the result, we can see the type is 0. If there are no explicit numbers in C enum definitions, the enum members correspond to 0, 1, 2 and so on. Type 0 thus corresponds to `Nil` which makes sense because we can't get anything.
 
 In this example we just pass 1 argument to demonstrate that default argument is working (and certainly not because I am lazy). We also check the `call_error.error` enum to make sure that the call was successful. Finally, we clean up strings, string names and variants.
+
+### Hello my custom node!
+
+This time in `src/hello_my_custom_node.c` we are going to utilize `gd_extension.classdb_register_extension_class2` in order to make a custom node type. We have the usual boilerplate code that we will skip. The real action happens in `register_my_custom_class`, `my_custom_class_init` and `my_custom_class_deinit`.
+
+In order to register the class, we need the class name, the parent class name and the information which is stored in `GDExtensionClassCreationInfo2`. The name has 2 in it because the struct changed the shape and the old shape was preserved in order to maintain backward compatibility. The structure has quite a few fields but luckily you can do the bare minimum with just 3 booleans and 2 functions, the rest of the fields can be set to `NULL`. This is what we did in the example to gradually ease into the shape of this struct. Let's see:
+- `is_virtual` -- is class virtual? (similar to `is_abstract`)
+- `is_abstract` -- is class abstract? (the class must be inherited in order to make an instance)
+- `is_exposed` -- if true, this class will be visible in editor. For example, if the class is a Node, you can instantiate it via node creation menu just like the built-in nodes.
+- `create_instance_func` -- constructor
+- `create_instance_func` -- destructor
+
+Since we want our node to be used directly in the editor, we set the first three fields to `false`, `false`, `true`. Then we define the constructor and destructor. Here's what you need to know about the construction and destruction process.
+
+In order to make your custom class instance, you need to construct a Godot object that is used by your object. Since we are parenting `Node`, we need to make a `Node` object via `gd_extension.classdb_construct_object`. Then we need to construct our own implementation of instance (any type) and attach it via `gd_extension.object_set_instance`. Finally you need to return the Godot object (and not your instance representation).
+
+This is important to keep in mind. `GDExtensionObjectPtr` is a Godot Object and `GDExtensionClassInstancePtr` is literally void pointer, it's for your eyes only. It also seems like `userdata` parameter is useless because we can store anything in `GDExtensionClassInstancePtr`.
+
+Finally we have a destructor. I think Godot releases the object on its own, so we probably don't need to touch it. The only manually allocated data is the struct itself which we pass to free.
+
+Our Node doesn't do much but it's a good start. If you open Godot and try to make a Node, you will see it in the menu with the standard Node icon.
+
+![MyCustomNode in Godot editor](./assets/MyCustomNode_screenshot.png)
