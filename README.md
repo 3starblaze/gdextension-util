@@ -147,3 +147,36 @@ Finally we have a destructor. I think Godot releases the object on its own, so w
 Our Node doesn't do much but it's a good start. If you open Godot and try to make a Node, you will see it in the menu with the standard Node icon.
 
 ![MyCustomNode in Godot editor](./assets/MyCustomNode_screenshot.png)
+
+### Hello my custom node! (with props)
+
+This time we will add some complexity by adding two properties to our class -- amplitude and frequency. As you can notice this addition doubled our file size and it incorporates several important concepts that you will need to utilize during your GDExtension programming journey. We will first start with the goal and then explain the additions.
+
+What do we need to do in order to support properties? We need to update our `GDExtensionClassCreationInfo2` struct and define:
+- `.set_func` -- setter
+- `.get_func` -- getter
+- `.get_property_list_func` -- return a list of available properties
+- `.free_property_list_func` -- destroy the list of properties that was created by `.get_property_list_func`
+
+We first want to think about what properties we have. I want `amplitude` and `frequency` which are Godot floats (C doubles). I defined some property information in `my_custom_class_props` which I will then use in `.get_property_list_func`.
+
+So let's look at `.get_property_list_func` signature. We get our instance, a pointer where we write how many properties we have and finally we return the list. If you look at `size_t n` definition, you will see a "trick" to calculate array item count which means I don't have to hardcode the size. Then we make the properties.
+
+So what is `GDExtensionPropertyInfo`? It has a type which is the Godot variant type of property. Then we have a name, self-explanatory. Then we have a class name. I find it weird that property has to know that information but I don't make the rules, I just set the field. Then we have property hints which adds some constraints that makes the property easier to edit. We could add a range but we will just mark our properties without any hints. There's also hint string which seems to include some metadata for a specific hint we use. Check out `PropertyHint` enum in [@GlobalScope docs](https://docs.godotengine.org/en/stable/classes/class_@globalscope.html) We don't have any hints so there's not much we can do in that regard. I tried setting that field to NULL but I segfaulted so that means you should put an empty string if you don't care about this field. Finally we have usage flags. There's documentation in GlobalScope docs for `PropertyUsageFlags` enum but to be honest I don't see anything helpful there, so I am going with the default option which is 6 (2 for storage + 4 for editor).
+
+Nothing interesting in `.free_property_list_func`, we just free what we had previously allocated.
+
+Then we have setters and getters. First of all we need to store amplitude and frequency in our struct, so we made a `prop_state` struct in our `my_custom_class_t` struct, so that we can keep track of those values. I then updated `my_custom_class_init` to initialize my properties to some distinct values so that I can be certain that everything works correctly. 
+
+Now it's time to start working on getter. I can't start with a setter because I wouldn't be able to observe the results as easily. Anyhow, let's take a look at the function signature. We get our instance and we get a string name for the property that is being asked. Then we have `r_ret` to set our return value and we have to return a boolean. I think we have to return true on success and false on failure. 
+
+Anyhow, we need to be able to check what property is being asked. The whole purpose of StringName is getting fast comparisons which more or less hints that we need to use `==` on that StringName. We need an `amplitude` StringName and `frequency` StringName. Getter is being called several times per second which is not that much but we will employ a simple performance optimization measure and store those string names in `gd_extension_helper.string_name`, so that we don't have to reconstruct them all the time.
+
+Okay, we need to be able to compare them. We need to get a function that can do the equality comparison. First we obtain `gd_extension.variant_get_ptr_operator_evaluator` and then ask for StringName equality comparison operator and store it in `gd_extension_helper.misc.string_name_eq_op`. We also made `string_name_eq` so that we can get a bool directly and make our code a little cleaner.
+
+Now it's just a matter of some if statements to determine the property that needs to be obtained. Of course, we can't return a plain double, we have to wrap it in a Variant. We make `gd_extension_helper.wrap.type_double` which is equal `gd_extension.get_variant_from_type_constructor(GDEXTENSION_VARIANT_TYPE_FLOAT)` and now we can easily turn those plain doubles into Variants. 
+
+With these steps we have our getter working and now it's time to work on the setter. We use the same `string_name_eq` we have defined before to match the properties. For type safety reasons, we first have to ensure that a correct type is passed. If the type is okay, we unwrap the value and save it. Unwrap function is retrieved similarly to wrap function. Be careful not to mix unwrapping with wrapping because they have the same signature (speaking from experience).
+
+After that is done, our humble Node class now supports properties. You can change them and you can also revert them.
+  
