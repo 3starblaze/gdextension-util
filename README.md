@@ -180,3 +180,16 @@ With these steps we have our getter working and now it's time to work on the set
 
 After that is done, our humble Node class now supports properties. You can change them and you can also revert them.
   
+### Hello my custom node! (with overrides)
+
+Now that we have some properties to play with, let's see how we can override methods. Certainly you are familiar with such methods as `_ready` and `_process` and know how important they are. We have extended the custom node + props example where we changed the node type to `Sprite2D` and overridden `_process` to move the a sprite vertically in a sine-wave motion. We are utilizing our previously defined `amplitude` and `frequency` to alter the movement.
+
+In order to override virtual methods, we either need to define `.get_virtual_func` or `.get_virtual_call_data_func` + `.call_virtual_with_data_func`. In `.get_virtual_func` you are asked for a callback and that callback will be used whenever the method is called. In the second way, Godot calls `.get_virtual_call_data_func` to trade method name for some piece of your data and whenever that particular method is called, this piece of data along with method args is passed to `.call_virtual_with_data_func`.
+
+We demonstrate the first option because it's easier but if you are creating bindings to another language, you will probably like the second option because it allows for more dynamic behavior (because you don't need to provide a new function pointer).
+
+We have defined `my_custom_class_get_virtual` that returns `my_custom_class__process_override` if `_process` override is requested. Let's discuss what's happening in our overridden method. First of all, we have to define `time_elapsed` variable in order to provide a smooth sine motion. Then we pack sine function results into a `Vector2` and ptrcall to `Node2D.set_position`.
+
+First of all, how do we know how `Vector2` looks like? If we take a look at `gde-api`, we see a `"builtin_class_member_offsets"` field. Each class defined there represents a C struct with its members and the offsets. I would recommend packing your structs tightly because, after skimming through definitions, all of them seem tightly-packed. If you look at `Vector2` memory information you can see that x and y change types depending on the large world coordinate support which we reflected via `#if` macro.
+
+With that being done, we can easily define a Vector2 and pass it to `set_position`. We fetched the method bind beforehand. If you open the editor and initialize `MyCustomNode`, you will see that the origin is moving right in the editor. You can drag an image into the texture field to have something more appealing moving. We are done.
